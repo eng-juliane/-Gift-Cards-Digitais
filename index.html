@@ -24,9 +24,9 @@
 
 </div>
   <div id="nav-buttons" class="flex gap-3">
-    <button onclick="openClientLogin()" class="border px-3 py-2 rounded-lg">Meus Vouchers</button>
+    <button onclick="openClientLogin()" class="border px-3 py-2 rounded-lg">Meus Gifts</button>
     
-    <button onclick="openRestaurantLogin()" class="border px-3 py-2 rounded-lg">Gestor Restaurante</button>
+    <button onclick="openRestaurantLogin()" class="border px-3 py-2 rounded-lg">Gestor - Estabelecimento</button>
     <button onclick="openAdminLogin()" class="border px-3 py-2 rounded-lg">Gestor Geral</button>
   </div>
 </header>
@@ -287,15 +287,14 @@ function confirmPurchase(restaurantName, value) {
   alert("Pagamento confirmado e mensagens enviadas!");
 }
 */
-
-
 function confirmPurchase(restaurantName, value) {
   const buyerName = buyerNameInput().value.trim();
   const buyerPhone = buyerPhoneInput().value.trim();
   const giftName = giftNameInput().value.trim();
   const giftPhone = giftPhoneInput().value.trim();
+  const paymentMethod = document.getElementById("paymentMethod").value;
 
-  if (!buyerName || !buyerPhone || !giftName || !giftPhone) {
+  if (!buyerName || !buyerPhone || !giftName || !giftPhone || !paymentMethod) {
     alert("Preencha todos os campos");
     return;
   }
@@ -305,36 +304,32 @@ function confirmPurchase(restaurantName, value) {
   const gift = {
     code,
     restaurantName,
+    buyerName,
+    buyerPhone,
+    receiverName: giftName,
+    receiverPhone: giftPhone,
+    paymentMethod,
     initialValue: value,
     balance: value,
     expires: "31/12/2026",
     active: true,
-    history: []
+    history: [
+      { date: new Date().toLocaleString("pt-BR"), value: 0, desc: `Compra via ${paymentMethod}` }
+    ]
   };
 
   userGifts.push(gift);
   saveGifts();
   closeModal();
 
-  // 🔗 Envia os dados para o Power Automate
-  fetch("URL_DO_SEU_FLUXO_POWER_AUTOMATE", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      buyerName,
-      buyerPhone,
-      giftName,
-      giftPhone,
-      restaurantName,
-      value,
-      code
-    })
-  })
-  .then(res => res.json())
-  .then(() => alert("Pagamento confirmado e mensagens enviadas via WhatsApp!"))
-  .catch(err => alert("Erro ao enviar mensagem: " + err));
-}
+  // ✅ Simulação de automação interna
+  console.log("Evento: Compra realizada", gift);
 
+  // Mostra mensagem de sucesso na tela
+  alert(`Compra realizada com sucesso!\nGift Card: ${gift.code}\nRestaurante: ${restaurantName}\nValor: R$ ${value}`);
+
+  renderMarketplace(); // Atualiza a tela com os gift cards
+}
 
 /* ================= MARKETPLACE ================= */
 function renderMarketplace(){
