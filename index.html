@@ -335,11 +335,18 @@ function renderUserPage(){
 
 function backToHome(){
   loggedRestaurant = null;
+
   document.getElementById("user-page").classList.add("hidden");
+  document.getElementById("marketplace").classList.remove("hidden");
+  document.getElementById("nav-buttons").classList.remove("hidden");
+
+  document.getElementById("header-title").innerHTML =
+    `<i data-lucide="gift"></i> Gift Cards Digitais`;
+
+  lucide.createIcons();
   renderMarketplace();
 }
- document.getElementById("header-title").innerHTML = `<i data-lucide="gift"></i> Gift Cards Digitais`;
-  lucide.createIcons();
+
 /* ================= CRIAR GIFT CARD ================= */
 function openCreateGift(){
   modal.innerHTML = `
@@ -781,11 +788,50 @@ function deleteGift(code){
   renderUserPage();
 }
 
+/* ================= MARKETPLACE ================= */
+function renderMarketplace(){
+  const el = document.getElementById("marketplace");
+
+  if(managedRestaurants.length === 0){
+    el.innerHTML = `
+      <div class="text-center mt-20 text-gray-400">
+        Nenhum restaurante cadastrado ainda.
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      ${managedRestaurants.map(r=>`
+        <div class="border rounded-2xl p-4 shadow bg-white">
+          <div class="h-40 bg-gray-100 rounded-lg mb-4 overflow-hidden flex items-center justify-center">
+            ${r.photo ? `<img src="${r.photo}" class="w-full h-full object-cover">` : "Sem foto"}
+          </div>
+
+          <h3 class="text-lg font-bold">${r.name}</h3>
+          <p class="text-sm text-gray-500 mb-4">${r.category}</p>
+
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="openPurchase('${r.name}',50)" class="border px-3 py-1 rounded">R$50</button>
+            <button onclick="openPurchase('${r.name}',100)" class="border px-3 py-1 rounded">R$100</button>
+            <button onclick="openPurchase('${r.name}',150)" class="border px-3 py-1 rounded">R$150</button>
+            <button onclick="openPurchase('${r.name}',200)" class="border px-3 py-1 rounded">R$200</button>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
 
 
 
 /* ================= INIT ================= */
-renderMarketplace();
+window.onload = () => {
+  renderMarketplace();
+  lucide.createIcons();
+};
+
 </script>
 </body>
 </html>
