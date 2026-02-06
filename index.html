@@ -550,6 +550,8 @@ function validateClientToken(){
 
 function renderClientVouchers(){
   const page = document.getElementById("user-page");
+// mostra apenas vouchers do cliente atual
+const gifts = userGifts.filter(g => g.receiverPhone === window.clientPhone);
 
   page.innerHTML = `
     <div class="max-w-5xl mx-auto">
@@ -564,9 +566,9 @@ function renderClientVouchers(){
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         ${
-          userGifts.length === 0
+          gifts.length === 0
           ? `<p class="text-gray-400">Nenhum voucher encontrado</p>`
-          : userGifts.map(g => `
+          : gifts.map(g => `
   <div class="border rounded-xl p-4 shadow-sm">
 
     <div class="flex justify-center mb-4">
@@ -862,22 +864,6 @@ function renderMarketplace(){
 }
 
 
-// ===== ABRIR ÁREA DO CLIENTE AUTOMATICAMENTE =====
-window.addEventListener("load", () => {
-
-  // esconde marketplace
-  document.getElementById("marketplace").classList.add("hidden");
-
-  // esconde botões do topo
-  document.getElementById("nav-buttons").classList.add("hidden");
-
-  // mostra página do usuário
-  document.getElementById("user-page").classList.remove("hidden");
-
-  // renderiza vouchers
-  renderClientVouchers();
-
-});
 
 
 /* ================= INIT ================= */
