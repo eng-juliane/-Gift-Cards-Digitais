@@ -43,6 +43,44 @@
 <div id="modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50"></div>
 
 <script>
+
+  // ===== LOGIN DEMO AUTOMÁTICO =====
+const DEMO_PHONE = "11999999999";
+const DEMO_TOKEN = "123456";
+
+// cliente logado automaticamente (modo teste)
+window.clientPhone = DEMO_PHONE;
+window.clientToken = DEMO_TOKEN;
+
+
+  // ===== VOUCHERS DEMO (apenas para testes) =====
+const DEMO_VOUCHERS = [
+  {
+    code: "CAFE75",
+    initialValue: 75,
+    balance: 75,
+    status: "Ativo",
+    expiryDate: "07/02/2026",
+    receiverPhone: "demo"
+  },
+  {
+    code: "ALMOCO120",
+    initialValue: 120,
+    balance: 80,
+    status: "Ativo",
+    expiryDate: "15/03/2026",
+    receiverPhone: "demo"
+  },
+  {
+    code: "JANTAR200",
+    initialValue: 200,
+    balance: 0,
+    status: "Utilizado",
+    expiryDate: "01/01/2026",
+    receiverPhone: "demo"
+  }
+];
+
 /* ================= DADOS PERSISTENTES ================= */
 const STORAGE_KEY_RESTAURANTS = "gift_restaurants";
 const STORAGE_KEY_GIFTS = "gift_cards";
@@ -824,6 +862,22 @@ function renderMarketplace(){
 }
 
 
+// ===== ABRIR ÁREA DO CLIENTE AUTOMATICAMENTE =====
+window.addEventListener("load", () => {
+
+  // esconde marketplace
+  document.getElementById("marketplace").classList.add("hidden");
+
+  // esconde botões do topo
+  document.getElementById("nav-buttons").classList.add("hidden");
+
+  // mostra página do usuário
+  document.getElementById("user-page").classList.remove("hidden");
+
+  // renderiza vouchers
+  renderClientVouchers();
+
+});
 
 
 /* ================= INIT ================= */
