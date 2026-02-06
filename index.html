@@ -655,57 +655,43 @@ function renderClientVouchers(){
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         ${
-          userGifts.length === 0
+         // Filtra apenas os gift cards disponíveis (comprados ou modelos)
+const vouchersDisponiveis = userGifts.filter(g => g.balance > 0 || g.initialValue);
+
+vouchersDisponiveis.length === 0
+
           ? `<p class="text-gray-400">Nenhum voucher encontrado</p>`
-          : userGifts.map(g => `
-  <div class="border rounded-xl p-4 shadow-sm">
+          : function renderClientVouchers(){
+  const page = document.getElementById("user-page");
 
-    <div class="flex justify-center mb-4">
-      <img 
-        src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${g.code}"
-        class="rounded-lg border"
-      />
-    </div>
+  // 🔹 filtra apenas os 3 modelos ou os que já foram comprados
+  const vouchersDisponiveis = userGifts.filter(g => g.balance > 0 || g.initialValue);
 
-    <p class="text-sm text-gray-500 mb-1">Código</p>
-    <p class="font-mono text-sm mb-3">${g.code}</p>
+  page.innerHTML = `
+    <div class="max-w-5xl mx-auto">
+      <button onclick="backToHome()" class="mb-6 border px-4 py-2 rounded-lg">
+        ← Voltar para página inicial
+      </button>
 
-    <div class="text-sm space-y-1 mb-4">
-      <p><strong>Valor inicial:</strong> R$ ${g.initialValue.toFixed(2)}</p>
-      <p><strong>Saldo restante:</strong> R$ ${g.balance.toFixed(2)}</p>
-      <p>
-        <strong>Status:</strong>
-        <span class="${g.active ? 'text-green-600' : 'text-red-600'}">
-          ${g.active ? 'Ativo' : 'Inativo'}
-        </span>
-      </p>
-      <p><strong>Validade:</strong> ${g.expires}</p>
-    </div>
+      <h2 class="text-2xl font-bold mb-6">
+        Meus Vouchers
+      </h2>
 
-    <div class="border-t pt-3 text-sm">
-      <p class="font-medium mb-1">Histórico de uso</p>
-      <ul class="space-y-1">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         ${
-          g.history.length === 0
-          ? `<li class="text-gray-400">Nenhum uso registrado</li>`
-          : g.history.map(h => `
-              <li class="flex justify-between">
-                <span>${h.date}</span>
-                <span class="text-red-600">- R$ ${h.value.toFixed(2)}</span>
-              </li>
-            `).join("")
-        }
-      </ul>
-    </div>
-
-  </div>
-`).join("")
-
+          vouchersDisponiveis.length === 0
+          ? `<p class="text-gray-400">Nenhum voucher encontrado</p>`
+          : vouchersDisponiveis.map(g => `
+            <div class="border rounded-xl p-4 shadow-sm">
+              ... // aqui vai todo o conteúdo do voucher que você já tinha
+            </div>
+          `).join("")
         }
       </div>
     </div>
   `;
 }
+
 
 /* ================= LOGIN RESTAURANTE ================= */
 function openRestaurantLogin(){
