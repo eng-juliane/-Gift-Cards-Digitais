@@ -120,7 +120,7 @@ function openPurchase(restaurantName, value) {
 }
 
 
-function confirmPayment(restaurantName, value) {
+async function confirmPayment(restaurantName, value) {
   const buyer = document.getElementById("buyerName").value.trim();
   const buyerPhone = document.getElementById("buyerPhone").value.trim();
   const receiver = document.getElementById("giftName").value.trim();
@@ -170,34 +170,33 @@ closeModal();
 const giftCode = userGifts[userGifts.length - 1].code;
 
 // 📲 Mensagem para quem RECEBEU
-sendWhatsApp(
+const giftCode = userGifts[userGifts.length - 1].code;
+
+/* 🎁 mensagem para PRESENTEADO */
+await sendWhatsApp(
   receiverPhone,
-  `🎁 Você recebeu um Gift Card!
+`🎁 Você recebeu um Gift Card!
 
 🍽 Restaurante: ${restaurant.name}
 💰 Valor: R$ ${value},00
 🔑 Código: ${giftCode}
 📅 Validade: 31/12/2026
 
-Apresente este QR Code no restaurante para usar seu gift.`
+Apresente este código no restaurante para usar seu gift.`
 );
 
-// 📲 Mensagem para quem COMPROU
-sendWhatsApp(
+/* ✅ mensagem para COMPRADOR */
+await sendWhatsApp(
   buyerPhone,
-  `✅ Compra confirmada!
+`✅ Compra confirmada!
 
 🎁 Gift enviado para: ${receiver}
 🍽 Restaurante: ${restaurant.name}
 💰 Valor: R$ ${value},00
 💳 Pagamento: ${paymentMethod}
 
-Obrigado por presentear!`
+Obrigado por presentear! 💖`
 );
-
-alert("Gift Card enviado por WhatsApp 🎉");
-
-}
 
 /*confirmação de compra
 
