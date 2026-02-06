@@ -74,7 +74,7 @@ const giftPhoneInput = ()=>document.getElementById("giftPhone");
 /**/
 
 /* ================= COMPRAR/PRESENTEAR ================= */
-
+/* ================= COMPRAR/PRESENTEAR ================= */
 function openPurchase(restaurantName, value) {
   modal.innerHTML = `
     <div class="bg-white p-6 rounded-2xl w-full max-w-md relative">
@@ -89,13 +89,10 @@ function openPurchase(restaurantName, value) {
 
       <input id="buyerName" class="w-full border rounded-xl p-3 mb-2"
         placeholder="Nome de quem está comprando">
-
       <input id="buyerPhone" class="w-full border rounded-xl p-3 mb-2"
         placeholder="Telefone de quem está comprando">
-
       <input id="giftName" class="w-full border rounded-xl p-3 mb-2"
         placeholder="Nome de quem vai receber">
-
       <input id="giftPhone" class="w-full border rounded-xl p-3 mb-4"
         placeholder="Telefone do presenteado">
 
@@ -119,7 +116,7 @@ function openPurchase(restaurantName, value) {
   modal.classList.remove("hidden");
 }
 
-
+/* ================= CONFIRMAR PAGAMENTO ================= */
 function confirmPayment(restaurantName, value) {
   const buyer = document.getElementById("buyerName").value.trim();
   const buyerPhone = document.getElementById("buyerPhone").value.trim();
@@ -138,19 +135,17 @@ function confirmPayment(restaurantName, value) {
     return;
   }
 
-  userGifts.push({
-    code: "GC-" + crypto.randomUUID().slice(0,8).toUpperCase(),
+  const code = "GC-" + crypto.randomUUID().slice(0, 8).toUpperCase();
+
+  const gift = {
+    code,
     restaurantEmail: restaurant.email,
     restaurantName: restaurant.name,
-
     buyerName: buyer,
     buyerPhone: buyerPhone,
-
     receiverName: receiver,
     receiverPhone: receiverPhone,
-
     paymentMethod: paymentMethod,
-
     initialValue: value,
     balance: value,
     expires: "31/12/2026",
@@ -162,54 +157,49 @@ function confirmPayment(restaurantName, value) {
         desc: `Compra via ${paymentMethod}`
       }
     ]
-  });
+  };
 
-saveGifts();
-closeModal();
+  userGifts.push(gift);
+  saveGifts();
+  closeModal();
 
+  // Mantém marketplace visível após fechar modal
+  renderMarketplace();
+
+  // Mensagens via WhatsApp
+  sendWhatsAppMessage(
+    receiverPhone,
+    `🎁 Você recebeu um Gift Card!\nRestaurante: ${restaurantName}\nValor: R$ ${value},00\nCódigo: ${code}\nValidade: 31/12/2026`
+  );
+
+  sendWhatsAppMessage(
+    buyerPhone,
+    `✅ Compra confirmada!\nGift enviado para: ${receiver}\nRestaurante: ${restaurantName}\nValor: R$ ${value},00\nPagamento: ${paymentMethod}`
+  );
+
+  alert("Pagamento confirmado e mensagens enviadas via WhatsApp!");
+}
+/*
 const giftCode = userGifts[userGifts.length - 1].code;
-
-// 📲 Mensagem para quem RECEBEU
-sendWhatsApp(
-  receiverPhone,
-  `🎁 Você recebeu um Gift Card!
-
-🍽 Restaurante: ${restaurant.name}
-💰 Valor: R$ ${value},00
-🔑 Código: ${giftCode}
-📅 Validade: 31/12/2026
-
-Apresente este QR Code no restaurante para usar seu gift.`
-);
-
-// 📲 Mensagem para quem COMPROU
-sendWhatsApp(
-  buyerPhone,
-  `✅ Compra confirmada!
-
-🎁 Gift enviado para: ${receiver}
-🍽 Restaurante: ${restaurant.name}
-💰 Valor: R$ ${value},00
-💳 Pagamento: ${paymentMethod}
-
-Obrigado por presentear!`
-);
-
-alert("Gift Card enviado por WhatsApp 🎉");
-
+function sendWhatsAppZAPI(phone, message) {
+  const cleanPhone = phone.replace(/\D/g, ""); // remove sinais e espaços
+  fetch(`https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      phone: cleanPhone,
+      message: message
+    })
+  })
+  .then(res => res.json())
+  .then(data => console.log("WhatsApp enviado:", data))
+  .catch(err => console.error("Erro WhatsApp:", err));
 }
 
-/*confirmação de compra*/
-
-function sendWhatsApp(phone, message) {
-  const cleanPhone = phone.replace(/\D/g, "");
-  const url = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`;
-  window.open(url, "_blank");
-}
 
 /*Z-API*/
 const ZAPI_INSTANCE = "3EE50C866F4CB157E12DC238C00EAB40";
-const ZAPI_TOKEN = "AAFF6B9D874627353E22F38F";
+const ZAPI_TOKEN = "F69bf5a7fb55640ebbd1312fb3d456353S";
 
 function sendWhatsAppMessage(phone, message) {
   fetch(`https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`, {
@@ -254,7 +244,7 @@ function openPurchase(restaurantName, value) {
   modal.classList.remove("hidden");
 }
 
-
+/*
 function confirmPurchase(restaurantName, value) {
   const buyerName = buyerNameInput().value;
   const buyerPhone = buyerPhoneInput().value;
@@ -295,6 +285,54 @@ function confirmPurchase(restaurantName, value) {
   );
 
   alert("Pagamento confirmado e mensagens enviadas!");
+}
+*/
+
+
+function confirmPurchase(restaurantName, value) {
+  const buyerName = buyerNameInput().value.trim();
+  const buyerPhone = buyerPhoneInput().value.trim();
+  const giftName = giftNameInput().value.trim();
+  const giftPhone = giftPhoneInput().value.trim();
+
+  if (!buyerName || !buyerPhone || !giftName || !giftPhone) {
+    alert("Preencha todos os campos");
+    return;
+  }
+
+  const code = "GC-" + crypto.randomUUID().slice(0, 8).toUpperCase();
+
+  const gift = {
+    code,
+    restaurantName,
+    initialValue: value,
+    balance: value,
+    expires: "31/12/2026",
+    active: true,
+    history: []
+  };
+
+  userGifts.push(gift);
+  saveGifts();
+  closeModal();
+
+  // 🔗 Envia os dados para o Power Automate
+  fetch("URL_DO_SEU_FLUXO_POWER_AUTOMATE", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      buyerName,
+      buyerPhone,
+      giftName,
+      giftPhone,
+      restaurantName,
+      value,
+      code
+    })
+  })
+  .then(res => res.json())
+  .then(() => alert("Pagamento confirmado e mensagens enviadas via WhatsApp!"))
+  .catch(err => alert("Erro ao enviar mensagem: " + err));
 }
 
 
