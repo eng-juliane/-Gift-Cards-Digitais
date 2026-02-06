@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gift Cards Digitais</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+  <script src="zapi.js"></script>
+
+</head>
+<body class="min-h-screen bg-white text-red-700 p-8">
+
+<!-- HEADER -->
+<header class="flex items-center justify-between mb-10">
+ <div style="display:flex; flex-direction:column; gap:12px;">
+
+  <div style="display:flex; align-items:center; gap:10px;">
+    <img src="transferir.png" alt="Descrição 1" style="height:40px; width:auto;">
+    <img src="transferir2.png" alt="Descrição 2" style="height:40px; width:auto;">
+  </div>
+
+  <h1 id="header-title" class="text-3xl font-bold flex items-center gap-2">
+    <i data-lucide="gift"></i> Gift Cards Digitais
+  </h1>
+
+</div>
+  <div id="nav-buttons" class="flex gap-3">
+    <button onclick="openClientLogin()" class="border px-3 py-2 rounded-lg">Meus Vouchers</button>
+    
+    <button onclick="openRestaurantLogin()" class="border px-3 py-2 rounded-lg">Gestor Restaurante</button>
+    <button onclick="openAdminLogin()" class="border px-3 py-2 rounded-lg">Gestor Geral</button>
+  </div>
+</header>
+
+<!-- MARKETPLACE -->
+<section id="marketplace"></section>
+
+<!-- USER PAGE -->
+<section id="user-page" class="hidden"></section>
+
+<!-- MODAL -->
+<div id="modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50"></div>
+
+<script>
+/* ================= DADOS PERSISTENTES ================= */
+const STORAGE_KEY_RESTAURANTS = "gift_restaurants";
+const STORAGE_KEY_GIFTS = "gift_cards";
+
+let managedRestaurants = JSON.parse(localStorage.getItem(STORAGE_KEY_RESTAURANTS)) || [];
+let userGifts = JSON.parse(localStorage.getItem(STORAGE_KEY_GIFTS)) || [];
+
+
+
+
+
+
+// Admin fixo
+const adminCredentials = { email:"admin@takeat.com", password:"123456" };
+let loggedRestaurant = null; // Guarda restaurante logado
+
+const modal = document.getElementById("modal");
+
+/* ================= HELPERS ================= */
+function saveRestaurants() { localStorage.setItem(STORAGE_KEY_RESTAURANTS, JSON.stringify(managedRestaurants)); }
+function saveGifts() { localStorage.setItem(STORAGE_KEY_GIFTS, JSON.stringify(userGifts)); }
+function closeModal(){ modal.classList.add("hidden"); }
+const buyerNameInput = ()=>document.getElementById("buyerName");
+const buyerPhoneInput = ()=>document.getElementById("buyerPhone");
+const giftNameInput = ()=>document.getElementById("giftName");
+const giftPhoneInput = ()=>document.getElementById("giftPhone");
+
+
+
+
+/**/
+
+/* ================= COMPRAR/PRESENTEAR ================= */
+
+function openPurchase(restaurantName, value) {
+  modal.innerHTML = `
+    <div class="bg-white p-6 rounded-2xl w-full max-w-md relative">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-xl">✕</button>
+
+      <h3 class="text-xl font-bold mb-4">Comprar / Presentear Gift Card</h3>
+
+      <p class="mb-4 text-sm text-gray-600">
+        Restaurante: <strong>${restaurantName}</strong><br>
+        Valor: <strong>R$ ${value},00</strong>
+      </p>
+
+      <input id="buyerName" class="w-full border rounded-xl p-3 mb-2"
+        placeholder="Nome de quem está comprando">
+
+      <input id="buyerPhone" class="w-full border rounded-xl p-3 mb-2"
+        placeholder="Telefone de quem está comprando">
+
+      <input id="giftName" class="w-full border rounded-xl p-3 mb-2"
+        placeholder="Nome de quem vai receber">
+
+      <input id="giftPhone" class="w-full border rounded-xl p-3 mb-4"
+        placeholder="Telefone do presenteado">
+
+      <label class="block mb-2 text-sm font-semibold">Forma de pagamento</label>
+      <select id="paymentMethod"
+        class="w-full border rounded-xl p-3 mb-4">
+        <option value="">Selecione</option>
+        <option value="Pix">Pix</option>
+        <option value="Débito">Débito</option>
+        <option value="Crédito">Crédito</option>
+        <option value="VR">Vale Refeição (VR)</option>
+        <option value="VA">Vale Alimentação (VA)</option>
+      </select>
+
+      <button onclick="confirmPayment('${restaurantName}', ${value})"
+        class="bg-red-600 text-white w-full py-3 rounded-xl">
+        Confirmar pagamento
+      </button>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+}
+
+
+function confirmPayment(restaurantName, value) {
+  const buyer = document.getElementById("buyerName").value.trim();
+  const buyerPhone = document.getElementById("buyerPhone").value.trim();
+  const receiver = document.getElementById("giftName").value.trim();
+  const receiverPhone = document.getElementById("giftPhone").value.trim();
+  const paymentMethod = document.getElementById("paymentMethod").value;
+
+  if (!buyer || !buyerPhone || !receiver || !receiverPhone || !paymentMethod) {
+    alert("Preencha todos os campos");
+    return;
+  }
+
+  const restaurant = managedRestaurants.find(r => r.name === restaurantName);
+  if (!restaurant) {
+    alert("Restaurante não encontrado");
+    return;
+  }
+
+  userGifts.push({
+    code: "GC-" + crypto.randomUUID().slice(0,8).toUpperCase(),
+    restaurantEmail: restaurant.email,
+    restaurantName: restaurant.name,
+
+    buyerName: buyer,
+    buyerPhone: buyerPhone,
+
+    receiverName: receiver,
+    receiverPhone: receiverPhone,
+
+    paymentMethod: paymentMethod,
+
+    initialValue: value,
+    balance: value,
+    expires: "31/12/2026",
+    active: true,
+    history: [
+      {
+        date: new Date().toLocaleString("pt-BR"),
+        value: 0,
+        desc: `Compra via ${paymentMethod}`
+      }
+    ]
+  });
+
+saveGifts();
+closeModal();
+
+const giftCode = userGifts[userGifts.length - 1].code;
+
+// 📲 Mensagem para quem RECEBEU
+sendWhatsAppMessage(
+  receiverPhone,
+  `🎁 Você recebeu um Gift Card!
+
+🍽 Restaurante: ${restaurant.name}
+💰 Valor: R$ ${value},00
+🔑 Código: ${giftCode}
+📅 Validade: 31/12/2026
+
+Apresente este QR Code no restaurante para usar seu gift.`
+);
+
+// 📲 Mensagem para quem COMPROU
+sendWhatsAppMessage(
+  buyerPhone,
+  `✅ Compra confirmada!
+
+🎁 Gift enviado para: ${receiver}
+🍽 Restaurante: ${restaurant.name}
+💰 Valor: R$ ${value},00
+💳 Pagamento: ${paymentMethod}
+
+Obrigado por presentear!`
+);
+
+alert("Gift Card enviado por WhatsApp 🎉");
+
+}
+
+/*confirmação de compra*/
+
+
+
+/*Z-API*/
+/* ===== ENVIO REAL WHATSAPP Z-API ===== */
+const ZAPI_INSTANCE = "3EE50C866F4CB157E12DC238C00EAB40";
+const ZAPI_TOKEN = "AAFF6B9D874627353E22F38F";
+const ZAPI_CLIENT_TOKEN = "F69bf5a7fb55640ebbd1312fb3d456353S";
+
+function sendWhatsAppMessage(phone, message) {
+
+  // limpa telefone (remove espaços, traços etc)
+  const cleanPhone = phone.replace(/\D/g, "");
+
+  fetch(`https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Client-Token": ZAPI_CLIENT_TOKEN   // ⭐ ESTE ERA O ERRO
+    },
+    body: JSON.stringify({
+      phone: "55" + cleanPhone,
+      message: message
+    })
+  })
+  .then(res => res.json())
+  .then(data => console.log("WhatsApp enviado:", data))
+  .catch(err => console.error("Erro WhatsApp:", err));
+}
+
+
+/* ================= USER PAGE ================= */
+function isExpired(dateStr){
+  const [day,month,year] = dateStr.split("/");
+  return new Date(year, month-1, day) < new Date();
+}
+
+function deductValue(giftCode, amount, description){
+  const gift = userGifts.find(g => g.code === giftCode);
+  if(!gift) return alert("Gift não encontrado");
+  if(isExpired(gift.expires)) return alert("Gift vencido");
+  if(amount > gift.balance) return alert("Saldo insuficiente");
+  gift.balance -= amount;
+  gift.history.push({ date:new Date().toLocaleString("pt-BR"), value:amount, desc:description||"Uso no restaurante" });
+  saveGifts();
+  alert("Valor abatido com sucesso");
+}
+
+function renderUserPage(){
+  closeModal();
+  document.getElementById("marketplace").classList.add("hidden");
+  document.getElementById("nav-buttons").classList.add("hidden");
+
+  const page = document.getElementById("user-page");
+  page.classList.remove("hidden");
+  document.getElementById("header-title").innerText = "Meus Gift Cards";
+
+  const gifts = userGifts.filter(g => loggedRestaurant && g.restaurantEmail === loggedRestaurant.email);
+
+  page.innerHTML = `
+    <div class="max-w-4xl mx-auto">
+      <button onclick="backToHome()" class="mb-10 border px-4 py-2 rounded-lg">← Voltar</button>
+      <h2 class="text-xl font-bold mb-4">Olá, ${loggedRestaurant.name}</h2>
+      <button onclick="openCreateGift()" class="mb-6 bg-red-600 text-white px-4 py-2 rounded-lg">+ Criar Gift Card</button>
+      
+      
+    
+  ${gifts.length>0 ? gifts.map((g,i)=>`
+        <div class="border rounded-2xl p-4 mb-4 shadow">
+
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="text-lg font-semibold">${g.restaurantName}</h3>
+              <p>Valor inicial: <strong>R$ ${g.initialValue},00</strong></p>
+              <p>Saldo disponível: <strong class="text-green-600">R$ ${g.balance},00</strong></p>
+              <p>Validade: <strong>${g.expires}</strong></p>
+              <p>Status:
+          <strong class="${g.active ? 'text-green-600':'text-gray-400'}">
+    ${g.active ? 'Ativo' : 'Inativo'}
+  </strong>
+</p>
+
+<!-- AÇÕES -->
+<div class="flex gap-2 mt-4">
+  <button onclick="toggleGiftStatus('${g.code}')"
+    class="border px-3 py-1 rounded text-sm">
+    ${g.active ? 'Desativar' : 'Ativar'}
+  </button>
+
+  <button onclick="openDeductGift('${g.code}')"
+    class="border px-3 py-1 rounded text-sm">
+    Abater valor
+  </button>
+
+  <button onclick="deleteGift('${g.code}')"
+    class="border px-3 py-1 rounded text-sm text-red-600">
+    Excluir
+  </button>
+</div>
+
+<!-- HISTÓRICO -->
+<div class="mt-4 text-sm">
+  <strong>Histórico:</strong>
+  <ul class="mt-1">
+    ${
+      g.history.length === 0
+      ? `<li class="text-gray-400">Sem uso</li>`
+      : g.history.map(h =>
+          `<li>• ${h.date} — R$ ${h.value}</li>`
+        ).join("")
+    }
+  </ul>
+</div>
+
+
+</div>
+
+            </div>
+            <div class="text-center">
+              <div id="qr-user-${i}" class="mb-2"></div>
+              <button onclick="openQrFullscreen('${g.code}')" class="text-xs border px-3 py-1 rounded">Ampliar QR Code</button>
+            </div>
+          </div>
+        </div>
+      `).join('') : `<p class="text-gray-500 italic">Nenhum gift card criado ainda.</p>`}
+    </div>
+  `;
+
+  gifts.forEach((g,i)=> new QRCode(document.getElementById(`qr-user-${i}`),{ text:g.code, width:100, height:100 }));
+}
+
+function backToHome(){
+  loggedRestaurant = null;
+  document.getElementById("user-page").classList.add("hidden");
+  renderMarketplace();
+}
+ document.getElementById("header-title").innerHTML = `<i data-lucide="gift"></i> Gift Cards Digitais`;
+  lucide.createIcons();
+/* ================= CRIAR GIFT CARD ================= */
+function openCreateGift(){
+  modal.innerHTML = `
+    <div class="bg-white p-6 rounded-2xl w-full max-w-md relative">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-xl">✕</button>
+
+      <h3 class="text-xl font-bold mb-4">Criar Gift Card</h3>
+
+      <input id="giftCode" type="text"
+        class="w-full border rounded-xl p-3 mb-2"
+        placeholder="Código do Gift Card (ex: GC-ABC123)">
+
+      <input id="giftValue" type="number"
+        class="w-full border rounded-xl p-3 mb-2"
+        placeholder="Valor do Gift Card">
+
+      <input id="giftExpires" type="text"
+        class="w-full border rounded-xl p-3 mb-2"
+        placeholder="Validade (dd/mm/aaaa)">
+
+      <select id="giftStatus"
+        class="w-full border rounded-xl p-3 mb-4">
+        <option value="true">Ativo</option>
+        <option value="false">Inativo</option>
+      </select>
+
+      <div class="flex justify-end gap-3">
+        <button onclick="closeModal()" class="border px-4 py-2 rounded-lg">
+          Cancelar
+        </button>
+        <button onclick="saveGiftCard()" class="bg-red-600 text-white px-4 py-2 rounded-lg">
+          Criar
+        </button>
+      </div>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+}
+
+function saveGiftCard(){
+  const codeInput = document.getElementById("giftCode").value.trim();
+  const value = parseFloat(document.getElementById("giftValue").value);
+  const expires = document.getElementById("giftExpires").value.trim();
+  const status = document.getElementById("giftStatus").value === "true";
+
+  if(!value || !expires){
+    alert("Preencha todos os campos obrigatórios");
+    return;
+  }
+
+  // se não informar código, gera automaticamente
+  const finalCode = codeInput || ("GC-" + crypto.randomUUID().slice(0,8).toUpperCase());
+
+  // evita código duplicado
+  if(userGifts.some(g => g.code === finalCode)){
+    alert("Já existe um gift card com esse código");
+    return;
+  }
+
+  userGifts.push({
+    code: finalCode,
+    restaurantEmail: loggedRestaurant.email,
+    restaurantName: loggedRestaurant.name,
+    initialValue: value,
+    balance: value,
+    expires,
+    active: status,
+    history: []
+  });
+
+  saveGifts();
+  closeModal();
+  renderUserPage();
+}
+
+
+/*CLIENTE CONSULTAR */
+function openClientLogin(){
+  document.getElementById("marketplace").classList.add("hidden");
+  document.getElementById("nav-buttons").classList.add("hidden");
+  document.getElementById("header-title").innerText = "Acessar Meus Vouchers";
+
+  const page = document.getElementById("user-page");
+  page.classList.remove("hidden");
+
+  page.innerHTML = `
+    <div class="max-w-md mx-auto">
+      <button onclick="backToHome()"
+        class="mb-6 border px-4 py-2 rounded-lg">
+        ← Voltar
+      </button>
+
+      <h2 class="text-xl font-bold mb-4">
+        Informe seu celular
+      </h2>
+
+      <input id="clientPhone"
+        class="w-full border rounded-xl p-3 mb-4"
+        placeholder="DDD + Número (ex: 27999999999)">
+
+      <button onclick="sendClientToken()"
+        class="bg-red-600 text-white w-full py-2 rounded-lg">
+        Enviar token
+      </button>
+    </div>
+  `;
+}
+
+function sendClientToken(){
+  const phone = document.getElementById("clientPhone").value.trim();
+  if(!phone){
+    alert("Informe o número do celular");
+    return;
+  }
+
+  // token fake (simulação)
+  window.fakeClientToken = "123456";
+  window.clientPhone = phone;
+
+  renderClientToken();
+}
+
+function renderClientToken(){
+  const page = document.getElementById("user-page");
+
+  page.innerHTML = `
+    <div class="max-w-md mx-auto">
+      <button onclick="openClientLogin()"
+        class="mb-6 border px-4 py-2 rounded-lg">
+        ← Voltar
+      </button>
+
+      <h2 class="text-xl font-bold mb-4">
+        Digite o token
+      </h2>
+
+      <input id="clientToken"
+        class="w-full border rounded-xl p-3 mb-4 text-center tracking-widest"
+        placeholder="000000">
+
+      <button onclick="validateClientToken()"
+        class="bg-red-600 text-white w-full py-2 rounded-lg">
+        Validar
+      </button>
+
+      <p class="text-xs text-gray-400 mt-4 text-center">
+        (Token de teste: 123456)
+      </p>
+    </div>
+  `;
+}
+
+function validateClientToken(){
+  const token = document.getElementById("clientToken").value.trim();
+
+  if(token !== window.fakeClientToken){
+    alert("Token inválido");
+    return;
+  }
+
+  renderClientVouchers();
+}
+
+function renderClientVouchers(){
+  const page = document.getElementById("user-page");
+
+  page.innerHTML = `
+    <div class="max-w-5xl mx-auto">
+      <button onclick="backToHome()"
+        class="mb-6 border px-4 py-2 rounded-lg">
+        ← Voltar para página inicial
+      </button>
+
+      <h2 class="text-2xl font-bold mb-6">
+        Meus Vouchers
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        ${
+          userGifts.length === 0
+          ? `<p class="text-gray-400">Nenhum voucher encontrado</p>`
+          : userGifts.map(g => `
+  <div class="border rounded-xl p-4 shadow-sm">
+
+    <div class="flex justify-center mb-4">
+      <img 
+        src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${g.code}"
+        class="rounded-lg border"
+      />
+    </div>
+
+    <p class="text-sm text-gray-500 mb-1">Código</p>
+    <p class="font-mono text-sm mb-3">${g.code}</p>
+
+    <div class="text-sm space-y-1 mb-4">
+      <p><strong>Valor inicial:</strong> R$ ${g.initialValue.toFixed(2)}</p>
+      <p><strong>Saldo restante:</strong> R$ ${g.balance.toFixed(2)}</p>
+      <p>
+        <strong>Status:</strong>
+        <span class="${g.active ? 'text-green-600' : 'text-red-600'}">
+          ${g.active ? 'Ativo' : 'Inativo'}
+        </span>
+      </p>
+      <p><strong>Validade:</strong> ${g.expires}</p>
+    </div>
+
+    <div class="border-t pt-3 text-sm">
+      <p class="font-medium mb-1">Histórico de uso</p>
+      <ul class="space-y-1">
+        ${
+          g.history.length === 0
+          ? `<li class="text-gray-400">Nenhum uso registrado</li>`
+          : g.history.map(h => `
+              <li class="flex justify-between">
+                <span>${h.date}</span>
+                <span class="text-red-600">- R$ ${h.value.toFixed(2)}</span>
+              </li>
+            `).join("")
+        }
+      </ul>
+    </div>
+
+  </div>
+`).join("")
+
+        }
+      </div>
+    </div>
+  `;
+}
+
+/* ================= LOGIN RESTAURANTE ================= */
+function openRestaurantLogin(){
+  modal.innerHTML = `
+    <div class="bg-white p-6 rounded-2xl w-full max-w-md relative">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-xl">✕</button>
+      <h3 class="text-xl font-bold mb-4">Gestor Restaurante</h3>
+      <input id="restEmailLogin" class="w-full border rounded-xl p-3 mb-2" placeholder="Email">
+      <input id="restPasswordLogin" type="password" class="w-full border rounded-xl p-3 mb-4" placeholder="Senha">
+      <button onclick="loginRestaurant()" class="bg-red-600 text-white w-full py-2 rounded-lg">Entrar</button>
+    </div>`;
+  modal.classList.remove("hidden");
+}
+
+function loginRestaurant(){
+  const email = document.getElementById("restEmailLogin").value.trim();
+  const password = document.getElementById("restPasswordLogin").value.trim();
+  const restaurant = managedRestaurants.find(r=>r.email===email && r.password===password);
+  if(restaurant){
+    loggedRestaurant = restaurant;
+    closeModal();
+    renderUserPage();
+  } else alert("Email ou senha incorretos");
+}
+
+/* ================= GESTOR GERAL ================= */
+function openAdminLogin(){
+  document.getElementById("nav-buttons").classList.add("hidden");
+  modal.innerHTML = `
+    <div class="bg-white p-6 rounded-2xl w-full max-w-md relative">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-xl">✕</button>
+      <h3 class="text-xl font-bold mb-4">Gestor Geral</h3>
+      <input id="adminEmail" class="w-full border rounded-xl p-3 mb-2" placeholder="Email">
+      <input type="password" id="adminPassword" class="w-full border rounded-xl p-3 mb-4" placeholder="Senha">
+      <button onclick="loginAdmin()" class="bg-red-600 text-white w-full py-2 rounded-lg">Entrar</button>
+    </div>`;
+  modal.classList.remove("hidden");
+}
+
+function loginAdmin(){
+  const email = document.getElementById("adminEmail").value.trim();
+  const password = document.getElementById("adminPassword").value.trim();
+  if(email===adminCredentials.email && password===adminCredentials.password){
+    closeModal();
+    renderAdminDashboard();
+  } else alert("Email ou senha incorretos");
+}
+
+/* ================= ADMIN DASHBOARD ================= */
+function renderAdminDashboard(){
+  document.getElementById("marketplace").innerHTML = `
+    <div class="max-w-5xl mx-auto">
+      <button onclick="exitAdmin()" class="mb-6 border px-4 py-2 rounded-lg">← Sair</button>
+      <h2 class="text-2xl font-bold mb-4">Gerenciar Estabelecimentos</h2>
+      <button onclick="openRestaurantForm()" class="mb-6 bg-red-600 text-white px-4 py-2 rounded-lg">+ Cadastrar Novo</button>
+      <div id="restaurant-list" class="grid gap-4"></div>
+    </div>`;
+  renderRestaurantList();
+}
+
+function exitAdmin(){ renderMarketplace(); }
+
+/* ================= CADASTRO ESTABELECIMENTO ================= */
+function renderRestaurantList(){
+  const listEl = document.getElementById("restaurant-list");
+  listEl.innerHTML = managedRestaurants.map((r,i)=>`
+    <div class="border rounded-2xl p-4 flex justify-between items-center shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400">
+          ${r.photo ? `<img src="${r.photo}" class="w-full h-full object-cover rounded-lg">` : "Foto"}
+        </div>
+        <div>
+          <h3 class="font-semibold">${r.name}</h3>
+          <p class="text-sm text-gray-600">${r.category}</p>
+          <p class="text-sm text-gray-400">${r.email}</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="openRestaurantForm(${i})" class="border px-3 py-1 rounded-lg text-sm">Editar</button>
+        <button onclick="deleteRestaurant(${i})" class="border px-3 py-1 rounded-lg text-sm text-red-600">Excluir</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function openRestaurantForm(index){
+  const r = managedRestaurants[index]||{};
+  modal.innerHTML = `
+    <div class="bg-white p-6 rounded-2xl w-full max-w-md relative">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-xl">✕</button>
+      <h3 class="text-xl font-bold mb-4">${index!==undefined?"Editar":"Cadastrar"} Restaurante</h3>
+      <input id="restName" class="w-full border rounded-xl p-3 mb-2" placeholder="Nome do estabelecimento" value="${r.name||''}">
+      <input id="restCategory" class="w-full border rounded-xl p-3 mb-2" placeholder="Categoria" value="${r.category||''}">
+      <input id="restEmail" class="w-full border rounded-xl p-3 mb-2" placeholder="Email" value="${r.email||''}">
+      <input id="restPassword" type="password" class="w-full border rounded-xl p-3 mb-2" placeholder="Senha" value="${r.password||''}">
+      <label class="block mb-4">
+        Foto (opcional):
+        <input type="file" id="restPhoto" accept="image/*" class="mt-2 w-full">
+      </label>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeModal()" class="border px-4 py-2 rounded-lg">Cancelar</button>
+        <button onclick="saveRestaurant(${index})" class="bg-red-600 text-white px-4 py-2 rounded-lg">${index!==undefined?"Salvar":"Cadastrar"}</button>
+      </div>
+    </div>`;
+  modal.classList.remove("hidden");
+}
+
+function saveRestaurant(index){
+  const name = document.getElementById("restName").value.trim();
+  const category = document.getElementById("restCategory").value.trim();
+  const email = document.getElementById("restEmail").value.trim();
+  const password = document.getElementById("restPassword").value.trim();
+  const photoFile = document.getElementById("restPhoto").files[0];
+
+  if(!name || !category || !email || !password) return alert("Preencha todos os campos obrigatórios");
+
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const photoData = e.target.result || null;
+    if(index!==undefined){
+      managedRestaurants[index] = { name, category, email, password, photo: photoData };
+    } else {
+      managedRestaurants.push({ name, category, email, password, photo: photoData });
+    }
+    saveRestaurants();
+    renderRestaurantList();
+    closeModal();
+  };
+  if(photoFile) reader.readAsDataURL(photoFile);
+  else reader.onload({target:{result:null}});
+}
+
+function deleteRestaurant(index){
+  if(confirm("Quer realmente excluir este estabelecimento?")){
+    managedRestaurants.splice(index,1);
+    saveRestaurants();
+    renderRestaurantList();
+  }
+}
+
+function toggleGiftStatus(code){
+  const gift = userGifts.find(g => g.code === code);
+  if(!gift) return;
+
+  gift.active = !gift.active;
+  saveGifts();
+  renderUserPage();
+}
+
+function openDeductGift(code){
+  const gift = userGifts.find(g => g.code === code);
+  if(!gift) return;
+
+  const value = Number(prompt("Valor a abater"));
+  if(!value || value <= 0) return;
+
+  if(value > gift.balance){
+    alert("Saldo insuficiente");
+    return;
+  }
+
+  gift.balance -= value;
+  gift.history.push({
+    date: new Date().toLocaleString("pt-BR"),
+    value,
+    desc: "Uso no restaurante"
+  });
+
+  saveGifts();
+  renderUserPage();
+}
+
+function openQrFullscreen(code){
+  modal.innerHTML = `
+    <div class="bg-white p-6 rounded-2xl relative flex flex-col items-center">
+      <button onclick="closeModal()" 
+        class="absolute top-4 right-4 text-xl font-bold">✕</button>
+
+      <h3 class="text-lg font-semibold mb-4">QR Code do Gift Card</h3>
+
+      <div id="qr-fullscreen" class="mb-4"></div>
+
+      <p class="text-sm text-gray-600">
+        Código: <strong>${code}</strong>
+      </p>
+    </div>
+  `;
+
+  modal.classList.remove("hidden");
+
+  new QRCode(document.getElementById("qr-fullscreen"), {
+    text: code,
+    width: 280,
+    height: 280
+  });
+}
+
+
+function deleteGift(code){
+  const gift = userGifts.find(g => g.code === code);
+  if(!gift) return;
+
+  if(!confirm(`Deseja realmente excluir o gift card ${code}?`)){
+    return;
+  }
+
+  userGifts = userGifts.filter(g => g.code !== code);
+  saveGifts();
+  renderUserPage();
+}
+
+
+
+
+/* ================= INIT ================= */
+renderMarketplace();
+</script>
+</body>
+</html>
