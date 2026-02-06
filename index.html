@@ -6,8 +6,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-  <script src="zapi.js"></script>
-
 </head>
 <body class="min-h-screen bg-white text-red-700 p-8">
 
@@ -43,44 +41,6 @@
 <div id="modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50"></div>
 
 <script>
-
-  // ===== LOGIN DEMO AUTOMÁTICO =====
-const DEMO_PHONE = "11999999999";
-const DEMO_TOKEN = "123456";
-
-// cliente logado automaticamente (modo teste)
-window.clientPhone = DEMO_PHONE;
-window.clientToken = DEMO_TOKEN;
-
-
-  // ===== VOUCHERS DEMO (apenas para testes) =====
-const DEMO_VOUCHERS = [
-  {
-    code: "CAFE75",
-    initialValue: 75,
-    balance: 75,
-    status: "Ativo",
-    expiryDate: "07/02/2026",
-    receiverPhone: "demo"
-  },
-  {
-    code: "ALMOCO120",
-    initialValue: 120,
-    balance: 80,
-    status: "Ativo",
-    expiryDate: "15/03/2026",
-    receiverPhone: "demo"
-  },
-  {
-    code: "JANTAR200",
-    initialValue: 200,
-    balance: 0,
-    status: "Utilizado",
-    expiryDate: "01/01/2026",
-    receiverPhone: "demo"
-  }
-];
-
 /* ================= DADOS PERSISTENTES ================= */
 const STORAGE_KEY_RESTAURANTS = "gift_restaurants";
 const STORAGE_KEY_GIFTS = "gift_cards";
@@ -210,7 +170,7 @@ closeModal();
 const giftCode = userGifts[userGifts.length - 1].code;
 
 // 📲 Mensagem para quem RECEBEU
-sendWhatsAppMessage(
+sendWhatsApp(
   receiverPhone,
   `🎁 Você recebeu um Gift Card!
 
@@ -223,7 +183,7 @@ Apresente este QR Code no restaurante para usar seu gift.`
 );
 
 // 📲 Mensagem para quem COMPROU
-sendWhatsAppMessage(
+sendWhatsApp(
   buyerPhone,
   `✅ Compra confirmada!
 
@@ -241,28 +201,23 @@ alert("Gift Card enviado por WhatsApp 🎉");
 
 /*confirmação de compra*/
 
-
+function sendWhatsApp(phone, message) {
+  const cleanPhone = phone.replace(/\D/g, "");
+  const url = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`;
+  window.open(url, "_blank");
+}
 
 /*Z-API*/
-/* ===== ENVIO REAL WHATSAPP Z-API ===== */
 const ZAPI_INSTANCE = "3EE50C866F4CB157E12DC238C00EAB40";
 const ZAPI_TOKEN = "AAFF6B9D874627353E22F38F";
-const ZAPI_CLIENT_TOKEN = "F69bf5a7fb55640ebbd1312fb3d456353S";
 
 function sendWhatsAppMessage(phone, message) {
-
-  // limpa telefone (remove espaços, traços etc)
-  const cleanPhone = phone.replace(/\D/g, "");
-
   fetch(`https://api.z-api.io/instances/${ZAPI_INSTANCE}/token/${ZAPI_TOKEN}/send-text`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Client-Token": ZAPI_CLIENT_TOKEN   // ⭐ ESTE ERA O ERRO
-    },
-    body: JSON.stringify({
-      phone: "55" + cleanPhone,
-      message: message
+     method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    phone: "91989193003",
+    message: "Teste WhatsApp Z-API 🚀"
     })
   })
   .then(res => res.json())
@@ -270,6 +225,115 @@ function sendWhatsAppMessage(phone, message) {
   .catch(err => console.error("Erro WhatsApp:", err));
 }
 
+function openPurchase(restaurantName, value) {
+  modal.innerHTML = `
+    <div class="bg-white p-6 rounded-2xl w-full max-w-md relative">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-xl">✕</button>
+      <h3 class="text-xl font-bold mb-4">Comprar Gift Card</h3>
+
+      <input id="buyerName" class="w-full border p-2 mb-2 rounded" placeholder="Nome de quem compra">
+      <input id="buyerPhone" class="w-full border p-2 mb-2 rounded" placeholder="WhatsApp de quem compra">
+
+      <input id="giftName" class="w-full border p-2 mb-2 rounded" placeholder="Nome de quem vai receber">
+      <input id="giftPhone" class="w-full border p-2 mb-2 rounded" placeholder="WhatsApp do presenteado">
+
+      <select id="paymentMethod" class="w-full border p-2 mb-4 rounded">
+        <option>Pix</option>
+        <option>Crédito</option>
+        <option>Débito</option>
+        <option>VR</option>
+        <option>VA</option>
+      </select>
+
+      <button onclick="confirmPurchase('${restaurantName}', ${value})"
+        class="bg-red-600 text-white w-full py-2 rounded-lg">
+        Confirmar pagamento
+      </button>
+    </div>
+  `;
+  modal.classList.remove("hidden");
+}
+
+
+function confirmPurchase(restaurantName, value) {
+  const buyerName = buyerNameInput().value;
+  const buyerPhone = buyerPhoneInput().value;
+  const giftName = giftNameInput().value;
+  const giftPhone = giftPhoneInput().value;
+
+  if (!buyerName || !buyerPhone || !giftName || !giftPhone) {
+    alert("Preencha todos os campos");
+    return;
+  }
+
+  const code = "GC-" + crypto.randomUUID().slice(0, 8).toUpperCase();
+
+  const gift = {
+    code,
+    restaurantName,
+    initialValue: value,
+    balance: value,
+    expires: "31/12/2026",
+    active: true,
+    history: []
+  };
+
+  userGifts.push(gift);
+  saveGifts();
+  closeModal();
+
+  // 📩 Mensagem para o presenteado
+  sendWhatsAppMessage(
+    giftPhone,
+    `🎁 Você recebeu um Gift Card!\n\nRestaurante: ${restaurantName}\nValor: R$ ${value}\nCódigo: ${code}\nValidade: ${gift.expires}`
+  );
+
+  // 📩 Mensagem para o comprador
+  sendWhatsAppMessage(
+    buyerPhone,
+    `✅ Compra confirmada!\n\nVocê presenteou ${giftName} com um Gift Card de R$ ${value}.\nCódigo: ${code}`
+  );
+
+  alert("Pagamento confirmado e mensagens enviadas!");
+}
+
+
+/* ================= MARKETPLACE ================= */
+function renderMarketplace(){
+  const el = document.getElementById("marketplace");
+  el.classList.remove("hidden");
+
+  el.innerHTML = managedRestaurants.map(r => {
+    const gifts = userGifts.filter(g => g.restaurantEmail === r.email);
+    return `
+    <div class="mb-10">
+      <h2 class="text-2xl font-semibold flex items-center gap-2">
+        <i data-lucide="store"></i> ${r.name}
+      </h2>
+      <p class="text-sm text-gray-600 mb-4">${r.category}</p>
+      <div class="grid md:grid-cols-3 gap-6">
+        ${gifts.length > 0 ? gifts.map(g => `
+          <div class="border rounded-2xl p-6 shadow hover:scale-105 transition">
+            <p class="font-semibold">Gift Card</p>
+            <p class="text-2xl font-bold text-red-600 mb-4">R$ ${g.balance},00</p>
+            <button onclick="openPurchase('${r.name}',${g.balance})" class="bg-red-600 text-white w-full py-2 rounded-lg">
+              Comprar / Presentear
+            </button>
+          </div>
+        `).join('') : `<p class="text-gray-400 italic">Nenhum gift card disponível.</p>`}
+      </div>
+    </div>`;
+  }).join("");
+
+  lucide.createIcons();
+
+  const nav = document.getElementById("nav-buttons");
+  nav.classList.remove("hidden");
+  nav.classList.add("flex");
+  document.getElementById("header-title").innerHTML = `<i data-lucide="gift"></i> Gift Cards Digitais`;
+  lucide.createIcons();
+
+}
 
 /* ================= USER PAGE ================= */
 function isExpired(dateStr){
@@ -373,18 +437,11 @@ function renderUserPage(){
 
 function backToHome(){
   loggedRestaurant = null;
-
   document.getElementById("user-page").classList.add("hidden");
-  document.getElementById("marketplace").classList.remove("hidden");
-  document.getElementById("nav-buttons").classList.remove("hidden");
-
-  document.getElementById("header-title").innerHTML =
-    `<i data-lucide="gift"></i> Gift Cards Digitais`;
-
-  lucide.createIcons();
   renderMarketplace();
 }
-
+ document.getElementById("header-title").innerHTML = `<i data-lucide="gift"></i> Gift Cards Digitais`;
+  lucide.createIcons();
 /* ================= CRIAR GIFT CARD ================= */
 function openCreateGift(){
   modal.innerHTML = `
@@ -550,8 +607,6 @@ function validateClientToken(){
 
 function renderClientVouchers(){
   const page = document.getElementById("user-page");
-// mostra apenas vouchers do cliente atual
-const gifts = userGifts.filter(g => g.receiverPhone === window.clientPhone);
 
   page.innerHTML = `
     <div class="max-w-5xl mx-auto">
@@ -566,9 +621,9 @@ const gifts = userGifts.filter(g => g.receiverPhone === window.clientPhone);
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         ${
-          gifts.length === 0
+          userGifts.length === 0
           ? `<p class="text-gray-400">Nenhum voucher encontrado</p>`
-          : gifts.map(g => `
+          : userGifts.map(g => `
   <div class="border rounded-xl p-4 shadow-sm">
 
     <div class="flex justify-center mb-4">
@@ -828,50 +883,11 @@ function deleteGift(code){
   renderUserPage();
 }
 
-/* ================= MARKETPLACE ================= */
-function renderMarketplace(){
-  const el = document.getElementById("marketplace");
-
-  if(managedRestaurants.length === 0){
-    el.innerHTML = `
-      <div class="text-center mt-20 text-gray-400">
-        Nenhum restaurante cadastrado ainda.
-      </div>`;
-    return;
-  }
-
-  el.innerHTML = `
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      ${managedRestaurants.map(r=>`
-        <div class="border rounded-2xl p-4 shadow bg-white">
-          <div class="h-40 bg-gray-100 rounded-lg mb-4 overflow-hidden flex items-center justify-center">
-            ${r.photo ? `<img src="${r.photo}" class="w-full h-full object-cover">` : "Sem foto"}
-          </div>
-
-          <h3 class="text-lg font-bold">${r.name}</h3>
-          <p class="text-sm text-gray-500 mb-4">${r.category}</p>
-
-          <div class="flex gap-2 flex-wrap">
-            <button onclick="openPurchase('${r.name}',50)" class="border px-3 py-1 rounded">R$50</button>
-            <button onclick="openPurchase('${r.name}',100)" class="border px-3 py-1 rounded">R$100</button>
-            <button onclick="openPurchase('${r.name}',150)" class="border px-3 py-1 rounded">R$150</button>
-            <button onclick="openPurchase('${r.name}',200)" class="border px-3 py-1 rounded">R$200</button>
-          </div>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
 
 
 
 /* ================= INIT ================= */
-window.onload = () => {
-  renderMarketplace();
-  lucide.createIcons();
-};
-
+renderMarketplace();
 </script>
 </body>
 </html>
